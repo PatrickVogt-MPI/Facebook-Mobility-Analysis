@@ -1,3 +1,5 @@
+# NOTES NOTES NOTES NOTES NOTES NOTES NOTES NOTES NOTES NOTES NOTES NOTES NOTES NOTES 
+#------------------------------------------------------------------------------------
 # Why is 'LINESTRING' different from start_lat, start_lon / end_lon, end_lat?
 '''@AlexPompe: 
 the linestring coordinates in the Movement Data sets are the average lat+lon of the starting point
@@ -11,15 +13,18 @@ one set of start / end coordinates are the centroid of the polygons and the othe
 '''
 To do:
     *only allow valid regular expression for 'key' in  'create_movement_graphs_from_csv'
-    *add path to csv to edge property
+    *implement save_movement_graph_to_file()
+    *read_movement_graph_from_file()
 '''
+#------------------------------------------------------------------------------------
+#\NOTES \NOTES \NOTES \NOTES \NOTES \NOTES \NOTES \NOTES \NOTES \NOTES \NOTES \NOTES 
 
 import csv
 import networkx as nx
 from pathlib import Path
 import re
 
-def create_movement_graphs_from_csv(path: Path, key: str=None) -> list:
+def create_movement_graphs_from_csv(path: Path, key: str = None, use_global_nodes: bool = False) -> list:
     '''
     Creates a list of graph data structures from all .csv files found in directory <path>
 
@@ -31,39 +36,40 @@ def create_movement_graphs_from_csv(path: Path, key: str=None) -> list:
         graphs: List of graph data structures created from each .csv file at the <path> directory. Returns 'None' instead, if empty
     '''
 
-    def add_unique_node(pivot: dict) -> int:
+    def add_unique_node(test_node: dict) -> int:
         '''
-        Adds node with properties 'pivot' to list 'nodes' if unique and in any case returns its identifier.
+        Adds node with properties 'test_node' to list 'global_nodes' if unique,
+        adds it to list 'nodes' for graph construction and returns its identifier.
 
         Args:
-            pivot:        Node properties
+            test_node:           Node properties
 
         Returns:
-            node[0]:      Identifier, node already exists
-            nodes[-1][0]: Identifier, node has been added
+            node[0]:             Identifier, node already exists
+            global_nodes[-1][0]: Identifier, node has been added
         '''
-        
-        for node in nodes:
-            if(node[1]['lat'] == pivot['lat'] and node[1]['lon'] == pivot['lon']): 
+        for node in global_nodes:
+            if(node[1]['lat'] == test_node['lat'] and node[1]['lon'] == test_node['lon']):
+                local_nodes.append(node)
                 return node[0]
-                
-        nodes.append((len(nodes)+1, pivot))
-        return nodes[-1][0]
+        global_nodes.append((len(global_nodes)+1, test_node))
+        local_nodes.append(global_nodes[-1])   
+        return global_nodes[-1][0]
     
-    graphs = []
+    # Introduction of global_nodes causes consistent identifier for all nodes among all graphs from different .csv files
+    graphs, global_nodes, temp = [], [], []
     
     pattern = '*' + key + '*.csv' if key else '*.csv'
     csv_paths = [csv_path for csv_path in Path(path).glob(pattern)]
     
-    for path in csv_paths:
-        # Organizes all data from a .csv file as properties in dicts
-        with open(str(path), newline='') as csvfile:
+    for path in csv_paths:  
+        with open(path, encoding='utf8') as csvfile:
             dict_reader = csv.DictReader(csvfile, delimiter=',')
             
-            edges, nodes = [], []
+            edges, local_nodes = [], []
             
             for row in dict_reader:
-                coordinates = re.findall(r"[-+]?[0-9]*\.[0-9]*", row['geometry'])
+                coordinates = re.findall(r"[-]?[0-9]*\.[0-9]*", row['geometry'])
                 
                 graph_properties = {
                     'date_time': row['date_time'],
@@ -98,28 +104,31 @@ def create_movement_graphs_from_csv(path: Path, key: str=None) -> list:
                     'z_score':        float(row['z_score']),
                     'percent_change': float(row['percent_change']),
                 }
-                
-                # Adds 'start_node' and 'end_node' to list 'nodes', if unique
+      
                 start_node = add_unique_node(start_node_properties)
                 end_node = add_unique_node(end_node_properties)
-
-                # Draws edge between 'start_node' and 'end_node'
                 edges.append((start_node, end_node, edge_properties))
             
-            # Creates graph structure from 'nodes' and 'edges' and adds it to list 'graphs'
             DG = nx.DiGraph(
                 date_time = graph_properties['date_time'], 
                 level     = graph_properties['level'], 
                 tile_size = graph_properties['tile_size']
             )
-            DG.add_nodes_from(nodes)
-            DG.add_edges_from(edges)
             
-            graphs.append(DG)   
+            temp.append((DG, local_nodes, edges))
+    
+    # Constructing final graph from graph object, nodes and edges and adding it to list graphs
+    for (graph, local_nodes, edges) in temp:
+        if(use_global_nodes):
+            graph.add_nodes_from(global_nodes)
+        else:
+            graph.add_nodes_from(local_nodes)
+        graph.add_edges_from(edges)
+        graphs.append(graph)
             
     return graphs if graphs else None
     
-def save_movement_graph():
+def save_movement_graph_to_file():
     pass
         
 def read_movement_graph_from_file():

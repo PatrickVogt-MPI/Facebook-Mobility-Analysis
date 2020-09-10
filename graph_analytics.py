@@ -4,74 +4,65 @@ from networkx import DiGraph
 from pathlib import Path
 from typing import List
 
-# list of tuples?
-# search propertys rathe than iterate over properties
-def iterate_over_edges(graph: DiGraph, key: str=None):
+# what type hint **kwargs?
+def search_edges(graph: DiGraph, **kwargs):
     '''
-    Extracts (specified) properties of all edges in a graph
+    Searches edges of a graph for property values and returns list of resulting edge identifier
 
     Args:
-        graph:  Graph object
-        key:    Dictionary key of an edge property
+        graph:    Graph object
+        **kwargs: edge property key, search value pairs
 
     Returns:
-        values: List with values of edge property 'key' for all edges in 'graph'. Returns list of property dicts instead, if 'key=None'
+        edges: list of edge identifier (= node identifier tuples) that fulfill the search criteria
     '''
-    values = []
+    edges = []
     for node1, node2, data in graph.edges.data():
-        if(key): 
-            values.append(data[key])
-        else: 
-            values.append(data)
-    return values
+        if (all(data[key] == value for key, value in kwargs.items())):
+            edges.append((node1, node2))
+    return edges
     
-def iterate_over_nodes(graph: DiGraph, key:str=None):
+def search_nodes(graph: DiGraph, **kwargs):
     '''
-    Extracts (specified) properties of all nodes in a graph
+    Searches nodes of a graph for property values and returns list of resulting node identifier
 
     Args:
-        graph:  Graph object
-        key:    Dictionary key of a node property
+        graph:    Graph object
+        **kwargs: node property key, search value pairs
 
     Returns:
-        values: List with values of node property 'key' for all nodes in 'graph'. Returns list of property dicts instead, if 'key=None'
+        nodes: list of node identifier (= natural number) that fulfill the search criteria
     '''
-    values = []
+    nodes = []
     for node, data in graph.nodes.data():
-        if(key): 
-            values.append(data[key])
-        else: 
-            values.append(data)
-    return values
+        if (all(data[key] == value for key, value in kwargs.items())):
+            nodes.append(node)           
+    return nodes
     
-def iterate_over_graphs(graphs: List[DiGraph], key: str=None):
+def search_graphs(graphs: List[DiGraph], **kwargs):
     '''
-    Extracts (specified) properties of all graphs in a list of graphs
+    Searches a graph for property values and returns list of resulting graphs
 
     Args:
-        graph:  Graph object
-        key:    Dictionary key of a graph property
+        graphs:   list of Graph objects
+        **kwargs: graph property key, search value pairs
 
     Returns:
-        values: List with values of graph property 'key' for all graphs in 'graphs'. Returns list of whole property dicts instead, if 'key=None'
+        _graphs: list of graphs that fulfill the search criteria
     '''
-    values = []
+    _graphs = []
     for graph in graphs:
-        if(key): 
-            values.append(graph.graph[key])
-        else: 
-            values.append(graph.graph)
-    return values
+        if (all(graph.graph[key] == value for key, value in kwargs.items())):
+            _graphs.append(graph)
+    return _graphs
     
 def adjacency_matrix (graph):
     pass
 
 if __name__ == '__main__':
-    graphs = gc.create_movement_graphs_from_csv(settings.settings['data_dir'])
+    graphs = gc.create_movement_graphs_from_csv(settings.settings['data_dir'], '', use_global_nodes = False)
     
     for graph in graphs:
         print(f'Nodes: {len(graph.nodes)}')
         print(f'Edges: {len(graph.edges)}')
         print()
-    
-    
