@@ -38,7 +38,6 @@ def create_movement_graphs_from_csv(path: Path, key: str = None, allow_loops = T
             dict_reader = csv.DictReader(csvfile, delimiter=',')
             
             edges, nodes = [], []
-            n_total      = 0
             
             for row in dict_reader:
                 coordinates = re.findall(r"[-]?[0-9]*\.[0-9]*", row['geometry'])
@@ -77,8 +76,6 @@ def create_movement_graphs_from_csv(path: Path, key: str = None, allow_loops = T
                     'percent_change': float(row['percent_change']),
                 }
                 
-                n_total += edge_properties['n_crisis']
-                
                 start_node = (start_node_id, start_node_properties)
                 end_node = (end_node_id, end_node_properties)
                 
@@ -97,7 +94,6 @@ def create_movement_graphs_from_csv(path: Path, key: str = None, allow_loops = T
                     sum += graph[origin][target]['n_crisis']
                 for target in adj_matrix[origin]:
                     weight = graph[origin][target]['n_crisis']/sum
-                    #graph[origin][target]['weight'] = -weight if negate_weight else weight
                     graph[origin][target]['weight'] = 1
                     
             if(not allow_loops):
