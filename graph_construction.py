@@ -13,14 +13,18 @@ import numpy as np
 import re
 from pathlib import Path
 from timeit import default_timer as timer
+from networkx import Graph
 
-def create_movement_graphs_from_csv(path: Path, key: str = None, allow_loops = True, negate_weight = False, remove_isolates = False, display_runtime: bool = False) -> list:
+def create_movement_graphs_from_csv(path: Path, key: str = None, allow_loops: bool = True, remove_isolates: bool = False, display_runtime: bool = False) -> list:
     '''
     Creates a list of graph data structures from all .csv files found in directory <path>
 
     Args:
-        path:   Path pointing to the data directory of .csv files
-        key:    Search key for file names
+        path:            Path pointing to the data directory of .csv files
+        key:             Search key for file names
+        allow_loops:     Allow self-connections for nodes
+        remove_isolates: Remove nodes with self-connection only or no connection
+        display_runtime: Print runtime of graph construction
         
     Returns:
         graphs: List of graph data structures created from each .csv file at the <path> directory. Returns 'None' instead, if empty
@@ -86,31 +90,47 @@ def create_movement_graphs_from_csv(path: Path, key: str = None, allow_loops = T
             graph.add_nodes_from(nodes)
             graph.add_edges_from(edges)
             
-            # Add weight
-            adj_matrix = nx.to_dict_of_dicts(graph)            
-            for origin in graph.nodes:
-                sum = 0
-                for target in adj_matrix[origin]:
-                    sum += graph[origin][target]['n_crisis']
-                for target in adj_matrix[origin]:
-                    weight = graph[origin][target]['n_crisis']/sum
-                    graph[origin][target]['weight'] = 1
-                    
             if(not allow_loops):
                 graph.remove_edges_from(nx.selfloop_edges(graph))
             if(remove_isolates):
                 graph.remove_nodes_from(list(nx.isolates(graph)))
+            
+            # Add weight           
+            for source in graph.nodes:
+                sum = 0
+                adj_edges = graph.out_edges(source)
+                for _, target in adj_edges:
+                    sum += graph[source][target]['n_crisis']
+                for _, target in adj_edges:
+                    graph[source][target]['weight'] = graph[source][target]['n_crisis']/sum
          
             graphs.append(graph)
     
     end = timer()
-    
     if (display_runtime): print(f'Runtime Graph Creation: {end - start} seconds')
     
     return graphs if graphs else None
     
-def save_movement_graph_to_file():
-    pass
+def save_movement_graph_to_file(graph: Graph, path: Path, format: str = 'GraphML'):
+    '''
+    Stores a graph data structure in files of type <format> at <path>
+
+    Args:
+        graph:  Graph object
+        path:   Path pointing to storage directory
+        format: Storage file format
+    '''
+    if('GraphML'): nx.write_graphml(graph, path)
         
-def read_movement_graph_from_file():
-    pass
+def read_movement_graph_from_file(path: Path, format: str = 'GraphML'):
+    '''
+    Reads a graph data structure from file of type <format> at <path>
+
+    Args:
+        path:        Path pointing to graph data file
+        format:      graph data file format
+        
+    Returns:
+        (Di)Graph:  graph data structure
+    '''
+    if('GraphML'): return nx.read_graphml(path)
