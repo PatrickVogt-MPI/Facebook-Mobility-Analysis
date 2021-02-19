@@ -8,8 +8,21 @@ import numpy as np
 from   typing  import List, Set, Dict, Tuple, Optional
 from networkx import Graph, DiGraph
 
-# needs testing
-def init_state_SIR(date):   
+####################################################################
+### Disclaimer - paused because of                               ###
+### problems with mobility movement data set. Will be revisited. ###
+####################################################################
+
+def init_state_SIR(date: str): -> List[Set[Tuple]]
+    '''
+    Returns list with initial distribution of infected, susceptible, recovered as share of total state population.
+    
+    Args:
+        date: initial date (format 'YYYY-MM-DD')
+        
+    Returns:
+        init_distribution: list with initial distribution of infected, susceptible, recovered as share of total state population for each state.
+    '''
     state_population = {
         'Baden-Württemberg': 11100394,
         'Bayern': 13124737,
@@ -43,7 +56,7 @@ def init_state_SIR(date):
         init_distribution[state] = {'rel_susceptible': rel_susceptible, 'rel_infected': rel_infected, 'rel_recovered': rel_recovered}
     return init_distribution
         
-def closed_SIR(susceptible: int, infected: int, recovered: int, infection_rate: float, recovery_rate: float, timeframe: int) -> Tuple:
+def closed_SIR(susceptible: int, infected: int, recovered: int, infection_rate: float, recovery_rate: float, timeframe: int) -> Tuple[List[float]]:
     '''
     Simulation of the most basic SIR model.
 
@@ -83,7 +96,22 @@ def closed_SIR(susceptible: int, infected: int, recovered: int, infection_rate: 
         
     return ts_susceptible, ts_infected, ts_recovered, ts_scale
 
+# Fix: type(Graph.graph['date_time']) = pandas.Timestamp() now, not str
 def static_state_SIR(graph, infection_rate, recovery_rate, timeframe) -> Graph:
+    '''
+    Closed SIR-simulation for each node of Graph, initialised with RKI data.
+    
+    Args:
+        graph:          administrative population graph
+        infection_rate: number of new contagion of an infected individual per time step (beta)
+        recovery_rate:  rate, at which an infected individual either dies or recovers (gamma)
+        timeframe:      number of timesteps used for SIR simulation
+    
+    Returns:
+        ts_graph: Graph whose nodes carrying time series of susceptible, infected, recovered
+    
+    '''
+    
     ts_graph          = copy.deepcopy(nx.create_empty_copy(graph))
     date_time         = ts_graph.graph['date_time']
     init_distribution = init_state_SIR(date_time[:10])
@@ -104,6 +132,8 @@ def static_state_SIR(graph, infection_rate, recovery_rate, timeframe) -> Graph:
         ts_graph.nodes[id]['ts_recovered']   = ts_recovered
         
     return ts_graph
+    
+# Ignore, unfinished, untested. SIR-model with moving population on tile level using tile level movement graphs.
 '''            
 # needs testing
 def dynamic_state_SIR(graphs, infection_rate, recovery_rate, timeframe):
@@ -197,16 +227,6 @@ def dynamic_state_SIR(graphs, infection_rate, recovery_rate, timeframe):
     return graphs
 '''
    
-if __name__ == '__main__':
-    sys.stdout = open('output.txt', 'w')
-    
-    if('plot_SIR' in sys.argv):
-        ts_susceptible, ts_infected, ts_recovered, ts_scale = closed_SIR(susceptible = 997, infected = 3, recovered = 0, infection_rate = 0.4, recovery_rate = 0.04, timeframe = 100)
-        plot.plot_SIR(ts_susceptible, ts_infected, ts_recovered, ts_scale, store = True)
-    
-    print(init_state_SIR('2021-01-21'))
-    #print('Currently infected: {}'.format(con.currently_infected()))
-    
     
 '''
 #create graph with nodes
