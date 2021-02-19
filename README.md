@@ -2,7 +2,7 @@
 
 
 Dependencies:
-matplotlib, seaborn, pandas, networkx
+matplotlib, seaborn, pandas, networkx, numpy, simplekml
 
 Required files:
 RKI case number files, Facebook population/mobility data sets
