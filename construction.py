@@ -1,6 +1,7 @@
 import analytics
 import csv
 import re
+import settings
 import utility
 import networkx  as     nx
 import pandas    as     pd
@@ -8,6 +9,12 @@ from   functools import reduce
 from   pathlib   import Path
 from   networkx  import Graph
 from   networkx  import DiGraph
+
+###########################################################################
+### Disclaimer - All RKI related functions work perfectly,              ###
+### but RKI data set is inconsistent (missing/added columns over time). ###
+### Consistency starts around 2020-06-01+.                              ###
+###########################################################################
 
 def movement_graph(path: str) -> DiGraph:
     '''
@@ -177,7 +184,7 @@ def population_graph(path: str) -> Graph:
             graph_properties = {
                 'date_time': date_time,
                 'tile_size': len(str(quadkey)),
-                'pop_file':  path.name,
+                'pop_file':  Path(path).name,
             }
             node_properties = {
                 'lat':        lat,
@@ -206,7 +213,6 @@ def administrative_population_graph(path: str) -> Graph:
     nodes = []
     with open(Path(path), encoding='utf8') as csvfile:
         dict_reader = csv.DictReader(csvfile, delimiter=',')
-        
         for row in dict_reader:
             try:
                 date_time    = pd.to_datetime(row['date_time'], format='%Y-%m-%d %H%M')
@@ -219,8 +225,8 @@ def administrative_population_graph(path: str) -> Graph:
                 continue
             
             graph_properties = {
-                'date_time': date_time,
-                'pop_file':  path.name,
+                'date_time':       date_time,
+                'pop_admin_file': Path(path).name,
             }
             node_properties = {
                 'country':      country,
@@ -228,7 +234,7 @@ def administrative_population_graph(path: str) -> Graph:
                 'population':   population,
             }
             node_id = (lat, lon)
-            node = (node_id, node_properties)
+            node    = (node_id, node_properties)
             nodes.append(node)
         
     graph = nx.Graph(**graph_properties)
@@ -325,7 +331,7 @@ def space_aggregate_population_graph(graph: Graph, delta: int = 1) -> Graph:
 # If time: Add parameter for slicing/timeframe
 def time_aggregate_movement_graph(graphs: list) -> Graph:
     '''
-    Aggregates a set of (administrative) movement graphs over a arbitrary timeframe.
+    Aggregates a set of (administrative) movement graphs over an arbitrary timeframe.
 
     Args:
         graphs:  List of DiGraph objects
@@ -351,8 +357,42 @@ def time_aggregate_movement_graph(graphs: list) -> Graph:
                 agg_graph.add_edges_from([(id1, id2, edge_properties)])
                 
     return agg_graph
+    
+def time_aggregate_admin_population_graph(graphs: List[Graph], slice: int = 3) -> Graph:
+    '''
+    Aggregates a set of (administrative) population graphs over an arbitrary timeframe.
+
+    Args:
+        graphs: List of Graph objects
+        slice:  Splits list in consecutive fractions of <slice> items (default: 3 8-hour-timeframes = 1 day)
+        
+    Returns:
+        merged_graph: Graph object 
+    '''
+    if(not graphs):
+        print('[ERROR] Empty list - no graphs to aggregate.')
+        
+    agg_graphs = []
+    
+    graph_slices = [graphs[i*slice:i*slice + slice] for i in range(len(graphs)//slice)]
+    for slice in graph_slices:
+        agg_graph = nx.DiGraph(date_time = [], pop_admin_file = [])
+        
+        for graph in slice:
+            agg_graph.graph['date_time'].append(graph.graph['date_time'])
+            agg_graph.graph['pop_admin_file'].append(graph.graph['pop_admin_file'])        
+            
+            for id, data in graph.nodes.data():
+                if (id not in agg_graph):
+                    agg_graph.add_nodes_from([(id, data)])
+                else:
+                    agg_graph.nodes[id]['population'] += data['population']     
+
+        agg_graphs.append(agg_graph)
+        
+    return agg_graphs    
    
-def merge_population_with_movement_graph(pop_graph, mov_graph):
+def merge_population_with_movement_graph(pop_graph, mov_graph) -> DiGraph:
     '''
     Merges (nodes, edges, graph properties of) population graph with movement graph of identical tile resolution.
 
@@ -379,12 +419,12 @@ def merge_population_with_movement_graph(pop_graph, mov_graph):
     merged_graph = nx.compose(mov_graph, pop_graph)
     return merged_graph            
   
-def cumulated_infected(path: str, start_date: str = '01.01.00', end_date: str = '01.01.50', **kwargs) -> int:
+def cumulated_infected(start_date: str = '2020-06-01', end_date: str = '', **kwargs) -> int:
     '''
     Calculates the number of infected people within <start_date> and <end_date> (both dates inclusive).
-
+    If end_date is empty, system time will be selcted.
+    
     Args:
-        path:       path to case number .csv file from Robert-Koch-Institute
         start_date: date-string of format 'DD.MM.YY'
         end_date:   date-string of format 'DD.MM.YY'
         kwargs:     filter for values of columns in .csv file, e.g. Bundesland='Bayern' or Altersgruppe='A15-A34'
@@ -392,90 +432,103 @@ def cumulated_infected(path: str, start_date: str = '01.01.00', end_date: str = 
     Returns:
         count: number of infected people 
     '''
-    start = pd.to_datetime(start_date, format='%d.%m.%y')
-    end   = pd.to_datetime(end_date, format='%d.%m.%y')
+    start = pd.to_datetime(start_date, format='%Y-%m-%d')
+    if(end_date):
+        end = pd.to_datetime(end_date, format='%Y-%m-%d')
+    else:
+        end = pd.Timestamp.now().normalize()
     
-    col   = ['AnzahlFall', 'NeuerFall', 'Refdatum'] + list(kwargs)
-    df    = pd.read_csv(path, usecols=col, parse_dates=['Refdatum'])
+    path = f'{settings.paths["RKI"]}\\{end.month_name()}{str(end.year)}\\RKI_COVID19_{end.date()}.csv'
+    col  = ['AnzahlFall', 'NeuerFall', 'Meldedatum'] + list(kwargs)
     
-    mask  = (df['NeuerFall'] >= 0) & (df['Refdatum'] >= start) & (df['Refdatum'] <= end)
+    df = pd.read_csv(path, usecols=col, parse_dates=['Meldedatum'])
+    
+    mask  = (df['NeuerFall'] >= 0) & (df['Meldedatum'] >= start) & (df['Meldedatum'] <= end)
     for key, value in kwargs.items():
         mask &= (df[key] == value)
     
     count = df.loc[mask].sum()['AnzahlFall']
     return count
     
-def cumulated_recovered(path: str, start_date: str = '01.01.00', end_date: str = '01.01.50', **kwargs) -> int:
+def cumulated_recovered(start_date: str = '2020-06-01', end_date: str = '', **kwargs) -> int:
     '''
     Calculates the number of recovered people within <start_date> and <end_date> (both dates inclusive).
+    If end_date is empty, system time will be selcted.
 
     Args:
-        path:       path to case number .csv file from Robert-Koch-Institute
-        start_date: date-string of format 'DD.MM.YY'
-        end_date:   date-string of format 'DD.MM.YY'
+        start_date: date-string of format 'YYYY-MM-DD'
+        end_date:   date-string of format 'YYYY-MM-DD'
         kwargs:     filter for values of columns in .csv file, e.g. Bundesland='Bayern' or Altersgruppe='A15-A34'
         
     Returns:
         count: number of recovered people 
     '''
-    start = pd.to_datetime(start_date, format='%d.%m.%y')
-    end   = pd.to_datetime(end_date, format='%d.%m.%y')
+    start = pd.to_datetime(start_date, format='%Y-%m-%d')
+    if(end_date):
+        end   = pd.to_datetime(end_date, format='%Y-%m-%d')
+    else:
+        end = pd.Timestamp.now().normalize()
+        
+    path  = f'{settings.paths["RKI"]}\\{end.month_name()}{str(end.year)}\\RKI_COVID19_{end.date()}.csv'
+    col   = ['AnzahlGenesen', 'NeuGenesen', 'Meldedatum'] + list(kwargs)
+    df    = pd.read_csv(path, usecols=col, parse_dates=['Meldedatum'])
     
-    col   = ['AnzahlGenesen', 'NeuGenesen', 'Refdatum'] + list(kwargs)
-    df    = pd.read_csv(path, usecols=col, parse_dates=['Refdatum'])
-    
-    mask  = (df['NeuGenesen'] >= 0) & (df['Refdatum'] >= start) & (df['Refdatum'] <= end)
+    mask  = (df['NeuGenesen'] >= 0) & (df['Meldedatum'] >= start) & (df['Meldedatum'] <= end)
     for key, value in kwargs.items():
         mask &= (df[key] == value)
     
     count = df.loc[mask].sum()['AnzahlGenesen']
     return count
 
-def cumulated_deaths(path: str, start_date: str = '01.01.00', end_date: str = '01.01.50', **kwargs) -> int:
+def cumulated_dead(start_date: str = '2020-06-01', end_date: str = '', **kwargs) -> int:
     '''
     Calculates the number of deaths within <start_date> and <end_date> (both dates inclusive).
+    If end_date is empty, system time will be selcted.
 
     Args:
-        path:       path to case number .csv file from Robert-Koch-Institute
-        start_date: date-string of format 'DD.MM.YY'
-        end_date:   date-string of format 'DD.MM.YY'
+        start_date: date-string of format 'YYYY-MM-DD'
+        end_date:   date-string of format 'YYYY-MM-DD'
         kwargs:     filter for values of columns in .csv file, e.g. Bundesland='Bayern' or Altersgruppe='A15-A34'
         
     Returns:
         count: number of deaths
     '''
-    start = pd.to_datetime(start_date, format='%d.%m.%y')
-    end   = pd.to_datetime(end_date, format='%d.%m.%y')
+    start = pd.to_datetime(start_date, format='%Y-%m-%d')
+    if(end_date):
+        end   = pd.to_datetime(end_date, format='%Y-%m-%d')
+    else:
+        end = pd.Timestamp.now().normalize()
     
-    col   = ['AnzahlTodesfall', 'NeuerTodesfall', 'Refdatum'] + list(kwargs)
-    df    = pd.read_csv(path, usecols=col, parse_dates=['Refdatum'])
+    path  = f'{settings.paths["RKI"]}\\{end.month_name()}{str(end.year)}\\RKI_COVID19_{end.date()}.csv'
+    col   = ['AnzahlTodesfall', 'NeuerTodesfall', 'Meldedatum'] + list(kwargs)
+    df    = pd.read_csv(path, usecols=col, parse_dates=['Meldedatum'])
     
-    mask  = (df['NeuerTodesfall'] >= 0) & (df['Refdatum'] >= start) & (df['Refdatum'] <= end)
-    for key, value in kwargs.items():
+    mask  = (df['NeuerTodesfall'] >= 0) & (df['Meldedatum'] >= start) & (df['Meldedatum'] <= end)
+    for key, value in kwargs.items(): 
         mask &= (df[key] == value)
         
     count = df.loc[mask].sum()['AnzahlTodesfall']
     return count
     
-def currently_infected(path: str, date: str = '01.01.50', **kwargs) -> int:
+def currently_infected(date: str = '', **kwargs) -> int:
     '''
     Calculates the number of infected people until <date> (date inclusive).
 
     Args:
-        path:   path to case number .csv file from Robert-Koch-Institute
-        date:   date-string of format 'DD.MM.YY'
+        date:   date-string of format 'YYYY-MM-DD'
         kwargs: filter for values of columns in .csv file, e.g. Bundesland='Bayern' or Altersgruppe='A15-A34'
         
     Returns:
         current: number of infected people
+    
+    Secondary source of past RKI-csv files:
+    https://github.com/CharlesStr/CSV-Dateien-mit-Covid-19-Infektionen-
+    
+    RKI-dashboard:
+    https://experience.arcgis.com/experience/478220a4c454480e823b17327b2bf1d4
     '''
-    infected  = cumulated_infected(path, end_date = date, **kwargs)
-    recovered = cumulated_recovered(path, end_date = date, **kwargs)
-    dead      = cumulated_deaths(path, end_date = date, **kwargs)
+    infected  = cumulated_infected(end_date = date, **kwargs)
+    recovered = cumulated_recovered(end_date = date, **kwargs)
+    dead      = cumulated_dead(end_date = date, **kwargs)
     current   = infected - recovered - dead
     return current
-
-'''
-To do:
-- Verify Data Set
-'''
