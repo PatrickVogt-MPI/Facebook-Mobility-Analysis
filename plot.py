@@ -39,7 +39,7 @@ def tile_kml(graph: Graph, name: str):
         pol.style.polystyle.outline = 1
     kml.save(name + '.kml')
 
-def plot_nation_currently_infected(date: str = '2020-06-01', store: bool = False, name: str = 'nation-active-infections-plot.png'): -> matplotlib.figure.Figure
+def plot_nation_currently_infected(date: str = '2020-06-01', store: bool = False, name: str = 'nation-active-infections-plot.png'):
     '''
     DISCLAIMER: RKI data set inconsistent (columns removed/added over time). Stable since June.
     
@@ -91,7 +91,7 @@ def plot_nation_currently_infected(date: str = '2020-06-01', store: bool = False
 
     return fig  
 
-def plot_state_currently_infected(date: str = '2020-06-01', store: bool = False, name: str = 'state-active-infections-plot.png'): -> matplotlib.figure.Figure
+def plot_state_currently_infected(date: str = '2020-06-01', store: bool = False, name: str = 'state-active-infections-plot.png'):
     '''
     DISCLAIMER: RKI data set inconsistent (columns removed/added over time). Stable since June.
     
@@ -159,7 +159,7 @@ def plot_state_currently_infected(date: str = '2020-06-01', store: bool = False,
 
     return fig  
     
-def plot_SIR(ts_susceptible: List[float], ts_infected: List[float], ts_recovered: List[float], ts_scale: List[float], title: str, store: bool = False, name: str = 'SIR-plot.png'): -> matplotlib.axes._subplots.AxesSubplot
+def plot_SIR(ts_susceptible: List[float], ts_infected: List[float], ts_recovered: List[float], ts_scale: List[float], title: str, store: bool = False, name: str = 'SIR-plot.png'):
     '''
     Creates and saves a plot of susceptible, infected and recovered people over time of an SIR-model.
 
@@ -190,7 +190,7 @@ def plot_SIR(ts_susceptible: List[float], ts_infected: List[float], ts_recovered
     return plot
 
 # Change position based slicing to date slicing, use None value for missing data points, add timeframe slicing   
-def plot_state_population(graphs: List[Graphs], start_date: str = '2020-03-25', store: bool = False, name: str = 'state-population-plot.png'): -> matplotlib.figure.Figure
+def plot_state_population(graphs: List[Graph], start_date: str = '2020-03-25', store: bool = False, name: str = 'state-population-plot.png'):
     '''
     DISCLAIMER: Two missing dates in Facebook data set. Lack of time => went for the 'quick' solution. Will make function more error robust.
     
@@ -287,7 +287,7 @@ def plot_state_population(graphs: List[Graphs], start_date: str = '2020-03-25', 
     return fig
 
 # Change position based slicing to date slicing, add timeframe slicing
-def plot_nation_population(graphs: List[Graph], start_date: str = '2020-03-25', store: bool = False, name: str = 'nation-population-plot.png'): -> matplotlib.figure.Figure
+def plot_nation_population(graphs: List[Graph], start_date: str = '2020-03-25', store: bool = False, name: str = 'nation-population-plot.png'):
     '''    
     Generates plot of total Facebook population on national level over time.
 
@@ -344,7 +344,7 @@ def plot_nation_population(graphs: List[Graph], start_date: str = '2020-03-25', 
     return fig
 
 # Use 8 hour timeframe instead of days as slice and replace plot_nation_population()?
-def plot_nation_population_time_aggregate(graphs: List[Graphs], start_date: str = '2020-03-25', slice: int = 7, store: bool = False, name: str = 'nation-population-time-aggregate-plot.png'): -> matplotlib.figure.Figure
+def plot_nation_population_time_aggregate(graphs: List[Graph], start_date: str = '2020-03-25', slice: int = 7, store: bool = False, name: str = 'nation-population-time-aggregate-plot.png'):
     '''    
     Generates plot of time aggregated Facebook population on national level over time (default: 1 week aggregate).
 
@@ -403,7 +403,7 @@ def plot_nation_population_time_aggregate(graphs: List[Graphs], start_date: str 
     return fig
 
 # Change position based slicing to date slicing, add timeframe slicing
-def plot_state_population_share(graphs: List[Graph], start_date: str = '2020-03-25', store: bool = False, name: str = 'state-population-share-plot.png', equalize: bool = False): -> matplotlib.figure.Figure
+def plot_state_population_share(graphs: List[Graph], start_date: str = '2020-03-25', store: bool = False, name: str = 'state-population-share-plot.png', equalize: bool = False):
     '''    
     Generates plot of relative share of Facebook population on national level over time for each state.
 

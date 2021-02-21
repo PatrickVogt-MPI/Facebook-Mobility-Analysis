@@ -10,6 +10,8 @@ from networkx import Graph
 from networkx import DiGraph
 from pathlib  import Path
 from typing   import List, Set, Dict, Tuple, Optional
+from vincenty import vincenty
+from tabulate import tabulate
 
 def search_edges(graph: DiGraph, **kwargs) -> List:
     '''
@@ -104,7 +106,7 @@ def spherical_to_mercator_coordinates(lon: float, lat: float) -> Tuple[float, fl
     Returns:
         (y, x): y- and x-coordinate of point on mercator map
     '''
-    earth_radius = 6371000.785
+    earth_radius = 6378137 # WGS-84
     x = earth_radius*lon*np.pi/180
     y = earth_radius*np.log(np.tan(np.pi/4 + lat*np.pi/360))
     return y, x
@@ -120,7 +122,7 @@ def mercator_to_spherical_coordinates(y: float, x: float) -> Tuple[float, float]
     Returns:
         (lon, lat): longitude and latitude (in degrees)
     '''
-    earth_radius = 6371000.785
+    earth_radius = 6378137 #WGS-84
     lon = x / earth_radius * 180 / np.pi
     lat = (2 * np.arctan(np.exp(y / earth_radius)) - np.pi / 2) * 180 / np.pi
     return lon, lat
@@ -165,15 +167,31 @@ def get_tile_vertices(lon: float, lat: float, tile_size: int) -> Tuple[float, fl
     p3 = mercator_to_spherical_coordinates(y - length/2, x + length/2)
     return p0, p1, p2, p3
 
-def ts_correlation():
-    pass
+def orthodrome_length(lat1, lon1, lat2, lon2):
+    '''
+        Calculates the length of the orthodrome between two point using vincentys algorithm (https://en.wikipedia.org/wiki/Vincenty%27s_formulae).
+        The precision is 5mm on the WGS-84 ellipsoid.
+        
+        Args:
+            lon1: longitude of first point in degrees
+            lat1: latitude of first point in degrees
+            lon2: longitude of second point in degrees
+            lat2: latitude of second point in degrees
+            
+        Returns:
+            length: length of orthodrome in meters
+    '''
+    
+    length = vincenty((lat1, lon1), (lat2, lon2))*1000
+    return length
+    
     
 if __name__ == '__main__':
     ########################################################################
     ### Please ignore code below - just me quickly testing code snippets ###
     ########################################################################
     
-    sys.stdout = open('output.txt', 'w')
+    #sys.stdout = open('output.txt', 'w')
     
     movement_path            = settings.paths['movement_path']
     admin_movement_path      = settings.paths['admin_movement_path']
@@ -181,63 +199,12 @@ if __name__ == '__main__':
     admin_population_path    = settings.paths['admin_population_path']
     compiled_population_path = r'D:\Eigene Dokumente\Arbeit\Studium\Bachelorarbeit\Data\Facebook\Germany Coronavirus Disease Prevention Map Mar 26 2020\Facebook Population (Tile Level) Graphs'
     root                     = settings.paths['root']
-    
     '''
-    # compiles all pop graphs to graphml
-    # Create Graphs from csv and store as graphml
-    pop_paths = list(ut.file_list(population_path))[-10:]
-    for pop_path in pop_paths:
-        pop_graph = con.population_graph(pop_path)
-        name = 'D:\Eigene Dokumente\Arbeit\Studium\Bachelorarbeit\Data\Facebook\Germany Coronavirus Disease Prevention Map Mar 26 2020\Facebook Population (Tile Level) Graphs\\' + pop_graph.graph['pop_file'][-19:-4]
-        german = search_nodes(pop_graph, country = 'DE')
-        nodes = []
-        for id, data in german:
-            nodes.append(id)
-        germany = pop_graph.subgraph(nodes)
-        con.save_graph(germany, name + '.graphml')
+    graph = con.administrative_radiation_graph(next(ut.file_list(admin_population_path)), country = 'DE')
+    
+    sp = []
+    for id1, id2, data in graph.edges.data():
+        sp.append([graph.nodes[id1]["polygon_name"], graph.nodes[id1]["population"], graph.nodes[id2]["polygon_name"], graph.nodes[id2]["population"], "{0:.2%}".format(data["probability"])])
+    print(tabulate(sp, headers = ['source', 'population', 'destination', 'population', 'commuting probability']))
     '''
-    #pop_paths = ut.file_list(population_path)
-    #pop_graph = con.population_graph(next(pop_paths))
-    
-    '''
-    #compiles all admin pop graphs to graphml
-    admin_pop_paths = list(ut.file_list(admin_population_path))
-    
-    for admin_pop_path in admin_pop_paths:
-        admin_pop_graph = con.administrative_population_graph(admin_pop_path)
-        name = r'D:\Eigene Dokumente\Arbeit\Studium\Bachelorarbeit\Data\Facebook\Germany Coronavirus Disease Prevention Map Mar 26 2020\Facebook Population (Administrative Regions) Graphs\\' + admin_pop_graph.graph['pop_admin_file'][-19:-4]
-        print(name)
-        german = search_nodes(admin_pop_graph, country = 'DE')
-        nodes = []
-        for id, data in german:
-            nodes.append(id)
-        germany = admin_pop_graph.subgraph(nodes)
-        con.save_graph(germany, name +'.graphml')
-    '''
-    
-    path_ml = r'D:\Eigene Dokumente\Arbeit\Studium\Bachelorarbeit\Data\Facebook\Germany Coronavirus Disease Prevention Map Mar 26 2020\Facebook Population (Administrative Regions) Graphs'
-    
-    paths = list(ut.file_list(path_ml, filetype = 'graphml'))
-    graphs = []
-    for path in paths:
-        graph = con.read_graph(path)
-        graphs.append(graph)
-    
-    #ut.rename_csvs(admin_pop_paths)
-    #ut.check_for_missing_file(admin_pop_paths)
-    
-    #plot.plot_currently_infected('2021-02-02', store = True)
-    #plot.plot_state_population_share(graphs, store = True)
-    #plot.plot_state_population(graphs, store = True)
-    #plot.plot_nation_population(graphs, store = True)
-    #plot.plot_nation_population_time_aggregate(graphs, store = True)
-    #plot.plot_state_population_share(graphs, store = True)
-    plot.plot_state_currently_infected('2021-02-02', store = True)
-    
-    
-    #mov_paths = ut.file_list(movement_path)
-    #mov_graph = con.movement_graph(next(mov_paths))
-    
-    #admin_mov_paths = ut.file_list(admin_movement_path)
-    #admin_mov_graph = con.administrative_movement_graph(next(admin_mov_paths))
-    
+    print(con.cumulated_infected('2020-06-01', '2020-06-07'))

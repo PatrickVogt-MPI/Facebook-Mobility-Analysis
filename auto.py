@@ -1,5 +1,7 @@
 import keyboard
+import mouse
 import time
+import sys
 '''
 Navigate to page with download links of target and move mouse pointer above title and run the program.
 Pass number of links as command line argument.

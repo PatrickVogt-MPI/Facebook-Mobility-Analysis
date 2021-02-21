@@ -1,5 +1,6 @@
 import analytics
 import csv
+import itertools
 import re
 import settings
 import utility
@@ -9,6 +10,7 @@ from   functools import reduce
 from   pathlib   import Path
 from   networkx  import Graph
 from   networkx  import DiGraph
+from   typing  import List, Set, Dict, Tuple, Optional
 
 ###########################################################################
 ### Disclaimer - All RKI related functions work perfectly,              ###
@@ -16,12 +18,13 @@ from   networkx  import DiGraph
 ### Consistency starts around 2020-06-01+.                              ###
 ###########################################################################
 
-def movement_graph(path: str) -> DiGraph:
+def movement_graph(path: str, country: str = None) -> DiGraph:
     '''
     Creates a movement graph from a .csv file at <path>
 
     Args:
-        path: path pointing to the .csv file
+        path:    path pointing to the .csv file
+        country: country code to filter nodes for a single nation, e.g. 'DE' for Germany
         
     Returns:
         graph: DiGraph data structure
@@ -37,7 +40,7 @@ def movement_graph(path: str) -> DiGraph:
                 date_time          = pd.to_datetime(row['date_time'], format='%Y-%m-%d %H%M')
                 tile_size          = int(row['tile_size'])
                 file               = path.name
-                country            = row['country']
+                _country           = row['country']
                 start_lat          = float(row['start_lat'])
                 start_lon          = float(row['start_lon'])
                 start_polygon_id   = int(row['start_polygon_id'])
@@ -54,6 +57,9 @@ def movement_graph(path: str) -> DiGraph:
                 print(f'[ERROR] Unable to read data.')
                 return None
                 
+            if(country and country != _country):
+                continue
+                
             graph_properties = {
                 'date_time': date_time,
                 'tile_size': tile_size,
@@ -64,14 +70,14 @@ def movement_graph(path: str) -> DiGraph:
                 'lon':          start_lon,
                 'polygon_id':   start_polygon_id,
                 'polygon_name': start_polygon_name,
-                'country':      country,
+                'country':      _country,
             }
             end_node_properties   = {
                 'lat':          end_lat,
                 'lon':          end_lon,
                 'polygon_id':   end_polygon_id,
                 'polygon_name': end_polygon_name,
-                'country':      country,
+                'country':      _country,
             }
             edge_properties  = {
                 'n_crisis':  n_crisis,
@@ -89,12 +95,13 @@ def movement_graph(path: str) -> DiGraph:
     
     return graph
 
-def administrative_movement_graph(path: str) -> DiGraph:
+def administrative_movement_graph(path: str, country: str = None) -> DiGraph:
     '''
     Creates a movement graph (administrative level) from a .csv file at <path>
 
     Args:
-        path: path pointing to the .csv file
+        path:    path pointing to the .csv file
+        country: country code to filter nodes for a single nation, e.g. 'DE' for Germany
         
     Returns:
         graph: DiGraph data structure
@@ -109,7 +116,7 @@ def administrative_movement_graph(path: str) -> DiGraph:
                 date_time          = pd.to_datetime(row['date_time'], format='%Y-%m-%d %H%M')
                 tile_size          = int(row['tile_size'])
                 file               = path.name
-                country            = row['country']
+                _country           = row['country']
                 start_lat          = float(row['start_lat'])
                 start_lon          = float(row['start_lon'])
                 start_polygon_id   = int(row['start_polygon_id'])
@@ -124,6 +131,9 @@ def administrative_movement_graph(path: str) -> DiGraph:
                 print(f'[ERROR] Unable to read data.')
                 return None
                 
+            if(country and country != _country):
+                continue
+                
             graph_properties = {
                 'date_time':      date_time,
                 'tile_size':      tile_size,
@@ -132,12 +142,12 @@ def administrative_movement_graph(path: str) -> DiGraph:
             start_node_properties = {
                 'polygon_id':   start_polygon_id,
                 'polygon_name': start_polygon_name,
-                'country':      country,
+                'country':      _country,
             }
             end_node_properties   = {
                 'polygon_id':   end_polygon_id,
                 'polygon_name': end_polygon_name,
-                'country':      country,
+                'country':      _country,
             }
             edge_properties  = {
                 'n_crisis':  n_crisis,
@@ -157,12 +167,13 @@ def administrative_movement_graph(path: str) -> DiGraph:
     
     return graph
    
-def population_graph(path: str) -> Graph:
+def population_graph(path: str, country: str = None) -> Graph:
     '''
     Creates a population graph from a .csv file at <path>
 
     Args:
-        path: path pointing to the .csv file
+        path:    path pointing to the .csv file
+        country: country code to filter nodes for a single nation, e.g. 'DE' for Germany
         
     Returns:
         graph: Graph data structure
@@ -177,10 +188,14 @@ def population_graph(path: str) -> Graph:
                 quadkey    = row['quadkey']
                 lat        = float(row['lat'])
                 lon        = float(row['lon'])
-                country    = row['country']
+                _country    = row['country']
                 population = float(row['n_crisis'])
             except:
                 continue
+                
+            if(country and country != _country):
+                continue
+            
             graph_properties = {
                 'date_time': date_time,
                 'tile_size': len(str(quadkey)),
@@ -189,7 +204,7 @@ def population_graph(path: str) -> Graph:
             node_properties = {
                 'lat':        lat,
                 'lon':        lon,
-                'country':    country,
+                'country':    _country,
                 'population': population,
             }
             node = (quadkey, node_properties)
@@ -200,12 +215,13 @@ def population_graph(path: str) -> Graph:
         
     return graph
 
-def administrative_population_graph(path: str) -> Graph:
+def administrative_population_graph(path: str, country = None) -> Graph:
     '''
     Creates a population graph (administrative level) from a .csv file at <path>
 
     Args:
-        path: path pointing to the .csv file
+        path:    path pointing to the .csv file
+        country: country code to filter nodes for a single nation, e.g. 'DE' for Germany
         
     Returns:
         graph: Graph data structure
@@ -218,10 +234,13 @@ def administrative_population_graph(path: str) -> Graph:
                 date_time    = pd.to_datetime(row['date_time'], format='%Y-%m-%d %H%M')
                 lat          = float(row['lat'])
                 lon          = float(row['lon'])
-                country      = row['country']
+                _country     = row['country']
                 polygon_name = row['polygon_name']
                 population   = float(row['n_crisis'])
             except:
+                continue
+            
+            if(country and country != _country):
                 continue
             
             graph_properties = {
@@ -229,7 +248,7 @@ def administrative_population_graph(path: str) -> Graph:
                 'pop_admin_file': Path(path).name,
             }
             node_properties = {
-                'country':      country,
+                'country':      _country,
                 'polygon_name': polygon_name,
                 'population':   population,
             }
@@ -242,6 +261,36 @@ def administrative_population_graph(path: str) -> Graph:
         
     return graph
 
+def administrative_radiation_graph(path: str, country: str = None) -> DiGraph:
+    graph = administrative_population_graph(Path(path), country).to_directed()
+    
+    edges = []
+    for source, destination in itertools.product(graph, graph):
+        edge = (source, destination, {'distance': analytics.orthodrome_length(*source, *destination)})
+        edges.append(edge)
+    graph.add_edges_from(edges)
+    
+    edges = []
+    for source, destination in itertools.product(graph, graph):
+        m = graph.nodes[source]['population']
+        n = graph.nodes[destination]['population']
+        r = analytics.orthodrome_length(*source, *destination)        
+        s = 0
+        for edge in graph.edges(source):
+            if(edge[1] == destination or edge[1] == source):
+                continue
+            data = graph.get_edge_data(*edge)
+            if(data['distance'] <= r):
+                s += graph.nodes[edge[1]]['population']
+        
+        p     = (m*n)/((m+s)*(m+n+s))
+        avg_T = m*p
+        
+        edges.append((source, destination, {'n_crisis': avg_T, 'probability': p}))
+    graph.add_edges_from(edges)
+    
+    return graph   
+    
 # If time: Add name parameter for more convenient use, add more file formats     
 def save_graph(graph: Graph, path: str, format: str = 'GraphML'):
     '''
@@ -375,10 +424,10 @@ def time_aggregate_admin_population_graph(graphs: List[Graph], slice: int = 3) -
     agg_graphs = []
     
     graph_slices = [graphs[i*slice:i*slice + slice] for i in range(len(graphs)//slice)]
-    for slice in graph_slices:
+    for graph_slice in graph_slices:
         agg_graph = nx.DiGraph(date_time = [], pop_admin_file = [])
         
-        for graph in slice:
+        for graph in graph_slice:
             agg_graph.graph['date_time'].append(graph.graph['date_time'])
             agg_graph.graph['pop_admin_file'].append(graph.graph['pop_admin_file'])        
             
@@ -438,7 +487,8 @@ def cumulated_infected(start_date: str = '2020-06-01', end_date: str = '', **kwa
     else:
         end = pd.Timestamp.now().normalize()
     
-    path = f'{settings.paths["RKI"]}\\{end.month_name()}{str(end.year)}\\RKI_COVID19_{end.date()}.csv'
+    path = Path(f"{settings.paths['RKI']}/{end.month_name()}{end.year}/RKI_COVID19_{end.date()}.csv")
+    print(path)
     col  = ['AnzahlFall', 'NeuerFall', 'Meldedatum'] + list(kwargs)
     
     df = pd.read_csv(path, usecols=col, parse_dates=['Meldedatum'])
@@ -469,7 +519,7 @@ def cumulated_recovered(start_date: str = '2020-06-01', end_date: str = '', **kw
     else:
         end = pd.Timestamp.now().normalize()
         
-    path  = f'{settings.paths["RKI"]}\\{end.month_name()}{str(end.year)}\\RKI_COVID19_{end.date()}.csv'
+    path  = Path(f"{settings.paths['RKI']}/{end.month_name()}{end.year}/RKI_COVID19_{end.date()}.csv")
     col   = ['AnzahlGenesen', 'NeuGenesen', 'Meldedatum'] + list(kwargs)
     df    = pd.read_csv(path, usecols=col, parse_dates=['Meldedatum'])
     
@@ -499,7 +549,7 @@ def cumulated_dead(start_date: str = '2020-06-01', end_date: str = '', **kwargs)
     else:
         end = pd.Timestamp.now().normalize()
     
-    path  = f'{settings.paths["RKI"]}\\{end.month_name()}{str(end.year)}\\RKI_COVID19_{end.date()}.csv'
+    path  = Path(f"{settings.paths['RKI']}/{end.month_name()}{end.year}/RKI_COVID19_{end.date()}.csv")
     col   = ['AnzahlTodesfall', 'NeuerTodesfall', 'Meldedatum'] + list(kwargs)
     df    = pd.read_csv(path, usecols=col, parse_dates=['Meldedatum'])
     
