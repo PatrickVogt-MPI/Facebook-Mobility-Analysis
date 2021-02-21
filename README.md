@@ -1,13 +1,13 @@
 # Facebook-Movement-Map-Analysis
 
 
-Dependencies:
-matplotlib, seaborn, pandas, networkx, numpy, simplekml
+## Dependencies:
+matplotlib, seaborn, pandas, networkx, numpy, simplekml, vincety
 
-Required files:
+## Required files:
 RKI case number files, Facebook population/mobility data sets
 
-Overview:
+## Overview:
 construction.py: functions for building data structures from data files (Facebook, RKI .csvs)
 
 analytics.py:    functions to perform analysis on data structures (e.g. node, edge, graph filters)
