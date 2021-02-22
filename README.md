@@ -1,8 +1,7 @@
 # Facebook-Movement-Map-Analysis
 
-
 ## Dependencies:
-matplotlib, seaborn, pandas, networkx, numpy, simplekml, vincenty
+Install dependencies with 'pip install -r requirements.txt'
 
 ## Required files:
 RKI case number files, Facebook population/mobility data sets
